@@ -4,65 +4,44 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>RSI Weekly 30 – 200 Cryptos</title>
-
-    <!-- Tailwind CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
-
     <style>
       body {
-        background-color: #0f172a; /* sombre moderne */
+        background-color: #0a0a0a;
+        color: #ffffff;
         font-family: "Inter", sans-serif;
-        color: white;
       }
-      .cryptoBox {
-        transition: all 0.3s ease;
-        text-align: center;
-        font-weight: 600;
-      }
-      .cryptoBox:hover {
-        transform: scale(1.1);
-        box-shadow: 0 0 12px rgba(255, 255, 255, 0.2);
-      }
-      #cryptoGrid {
-        display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(60px, 1fr));
-        gap: 8px;
+      #crypto-container {
+        max-width: 1200px;
+        margin: 0 auto;
       }
     </style>
   </head>
 
-  <body class="min-h-screen p-6">
-    <div class="max-w-6xl mx-auto">
-      <!-- En-tête -->
-      <div class="flex items-center justify-between mb-6">
-        <h1 class="text-orange-500 text-2xl font-bold">
-          RSI Weekly 30 – 200 Cryptos
-        </h1>
-        <div class="flex items-center space-x-3">
-          <button
-            id="refreshBtn"
-            class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg shadow"
-          >
-            Rafraîchir
-          </button>
-          <span
-            id="progressText"
-            class="bg-black text-white px-3 py-2 rounded-lg text-sm"
-            >En attente...</span
-          >
-        </div>
-      </div>
+  <body class="min-h-screen flex flex-col items-center justify-start py-10">
+    <h1 class="text-3xl font-bold text-orange-400 mb-6 text-center">
+      RSI Weekly 30 – 200 Cryptos
+    </h1>
 
-      <!-- Grille -->
-      <div
-        id="cryptoGrid"
-        class="grid grid-cols-10 sm:grid-cols-15 md:grid-cols-20 lg:grid-cols-25 gap-2"
+    <div class="flex justify-center items-center mb-6 space-x-4">
+      <button
+        id="refresh"
+        class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg shadow-md transition-all duration-200"
       >
-        <p class="text-gray-400 text-sm">Chargement des données RSI...</p>
-      </div>
+        🔄 Rafraîchir
+      </button>
+      <span id="progress-text" class="text-gray-300 text-sm"></span>
     </div>
 
-    <!-- Script RSI -->
-    <script src="rsi.js?v=5"></script>
+    <div
+      id="crypto-container"
+      class="grid grid-cols-10 gap-3 justify-center p-4 bg-[#141414] rounded-2xl shadow-lg"
+    ></div>
+
+    <footer class="text-gray-500 text-xs mt-10">
+      Données : CoinGecko – Calcul RSI 30 Weekly
+    </footer>
+
+    <script src="rsi.js?v=6"></script>
   </body>
 </html>
