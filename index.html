@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>RSI Weekly 30 périodes – 200 cryptos</title>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap">
+  <style>
+    body {
+      margin: 0;
+      background: #0f1117;
+      color: #e5e5e5;
+      font-family: "Inter", sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+    h1 {
+      margin: 20px 0;
+      font-weight: 600;
+      letter-spacing: 1px;
+      text-align: center;
+      color: #00d084;
+    }
+    #grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(50px, 1fr));
+      gap: 6px;
+      width: 95%;
+      max-width: 1000px;
+      justify-items: center;
+    }
+    .square {
+      width: 45px;
+      height: 45px;
+      border-radius: 8px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      color: white;
+      font-size: 10px;
+      transition: background 0.4s;
+      box-shadow: 0 0 8px rgba(0,0,0,0.3);
+      text-transform: uppercase;
+      position: relative;
+    }
+    .rsi {
+      font-size: 9px;
+      opacity: 0.85;
+    }
+    .cross {
+      position: absolute;
+      top: 2px;
+      right: 3px;
+      color: #fff;
+      font-size: 12px;
+    }
+    button {
+      margin: 20px;
+      padding: 8px 16px;
+      background: #00d084;
+      color: #0f1117;
+      font-weight: 600;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: background 0.3s;
+    }
+    button:hover {
+      background: #06e29e;
+    }
+  </style>
+</head>
+<body>
+  <h1>RSI Weekly 30 périodes – 200 cryptos</h1>
+  <button id="update">Mettre à jour maintenant</button>
+  <div id="grid"></div>
+  <script src="rsi.js"></script>
+</body>
+</html>
