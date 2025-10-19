@@ -1,96 +1,137 @@
-const PROXY_URL = "https://crypto-proxy-ten.vercel.app/api/proxy?url=";
-const API_COINGECKO = "https://api.coingecko.com/api/v3";
-const grid = document.getElementById("grid");
-const updateBtn = document.getElementById("update");
+const API_BASE = "https://crypto-proxy-ten.vercel.app/api/proxy?url=";
+const container = document.getElementById("cryptoGrid");
+const title = document.createElement("h1");
+title.textContent = "RSI Weekly (30 périodes) – Top 200 cryptos";
+title.className = "text-center text-3xl font-bold mb-6 text-white";
+document.body.prepend(title);
 
-const RSI_PERIOD = 30;
-const UPDATE_INTERVAL_HOURS = 8;
-
-function calculateRSI(prices, period = RSI_PERIOD) {
-  if (prices.length < period + 1) return null;
-  let gains = 0, losses = 0;
-  for (let i = 1; i <= period; i++) {
-    const diff = prices[i] - prices[i - 1];
-    if (diff >= 0) gains += diff; else losses -= diff;
-  }
-  let avgGain = gains / period, avgLoss = losses / period;
-
-  for (let i = period + 1; i < prices.length; i++) {
-    const diff = prices[i] - prices[i - 1];
-    if (diff >= 0) {
-      avgGain = (avgGain * (period - 1) + diff) / period;
-      avgLoss = (avgLoss * (period - 1)) / period;
-    } else {
-      avgGain = (avgGain * (period - 1)) / period;
-      avgLoss = (avgLoss * (period - 1) - diff) / period;
-    }
-  }
-  const rs = avgLoss === 0 ? 100 : 100 - (100 / (1 + avgGain / avgLoss));
-  return Math.round(rs * 10) / 10;
-}
+const sleep = (ms) => new Promise((res) => setTimeout(res, ms));
 
 async function fetchTopCoins() {
-  const url = `${PROXY_URL}${encodeURIComponent(`${API_COINGECKO}/coins/markets?vs_currency=usd&order=market_cap_desc&per_page=210&page=1`)}`;
-  const res = await fetch(url);
-  const data = await res.json();
-  const filtered = data.filter(c =>
-    !["bitcoin", "ethereum"].includes(c.id) &&
-    !c.id.includes("wrapped") &&
-    !c.symbol.includes("usd") &&
-    !c.name.toLowerCase().includes("usd") &&
-    !c.symbol.includes("busd") &&
-    !c.symbol.includes("usdt")
+  const url = API_BASE + encodeURIComponent(
+    "https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&order=market_cap_desc&per_page=210&page=1"
   );
-  return filtered.slice(0, 200);
+  const r = await fetch(url);
+  const data = await r.json();
+
+  if (!Array.isArray(data)) throw new Error("Invalid data from CoinGecko");
+
+  return data
+    .filter(
+      (c) =>
+        !c.id.includes("wrapped") &&
+        !c.id.includes("usd") &&
+        !["bitcoin", "ethereum"].includes(c.id)
+    )
+    .slice(0, 200);
 }
 
-async function fetchWeeklyPrices(id) {
+async function tryCoinGeckoHistory(id) {
   try {
-    const url = `${PROXY_URL}${encodeURIComponent(`${API_COINGECKO}/coins/${id}/market_chart?vs_currency=usd&days=210&interval=weekly`)}`;
-    const res = await fetch(url);
-    const data = await res.json();
-    if (!data.prices) return [];
-    return data.prices.map(p => p[1]);
-  } catch {
-    return [];
+    const url = API_BASE + encodeURIComponent(
+      `https://api.coingecko.com/api/v3/coins/${id}/market_chart?vs_currency=usd&days=1000&interval=weekly`
+    );
+    const r = await fetch(url);
+    if (!r.ok) throw new Error("CG fail");
+    const d = await r.json();
+    return d.prices.map((p) => p[1]);
+  } catch (e) {
+    return null;
   }
 }
 
-function createSquare(symbol, rsi, wasRedToGreen) {
-  const div = document.createElement("div");
-  div.className = "square";
-  div.style.background = rsi > 50 ? "#00b36b" : "#b32020";
+async function tryBinance(symbol) {
+  const pairs = [`${symbol}USDT`, `${symbol}USDC`];
+  for (const pair of pairs) {
+    try {
+      const url = API_BASE + encodeURIComponent(
+        `https://api.binance.com/api/v3/klines?symbol=${pair}&interval=1w&limit=1000`
+      );
+      const r = await fetch(url);
+      if (!r.ok) continue;
+      const d = await r.json();
+      if (!Array.isArray(d)) continue;
+      return d.map((x) => parseFloat(x[4])); // close price
+    } catch (e) {
+      continue;
+    }
+  }
+  return null;
+}
 
-  div.innerHTML = `
-    <div>${symbol}</div>
-    <div class="rsi">${rsi ?? "?"}</div>
-    ${wasRedToGreen ? `<div class="cross">✚</div>` : ""}
-  `;
-  return div;
+function computeRSI(prices, period = 30) {
+  if (prices.length < period) return null;
+  const deltas = [];
+  for (let i = 1; i < prices.length; i++) deltas.push(prices[i] - prices[i - 1]);
+  const gains = deltas.map((d) => (d > 0 ? d : 0));
+  const losses = deltas.map((d) => (d < 0 ? -d : 0));
+  let avgGain =
+    gains.slice(0, period).reduce((a, b) => a + b, 0) / period;
+  let avgLoss =
+    losses.slice(0, period).reduce((a, b) => a + b, 0) / period;
+
+  for (let i = period; i < deltas.length; i++) {
+    avgGain = (avgGain * (period - 1) + gains[i]) / period;
+    avgLoss = (avgLoss * (period - 1) + losses[i]) / period;
+  }
+
+  if (avgLoss === 0) return 100;
+  const rs = avgGain / avgLoss;
+  return 100 - 100 / (1 + rs);
+}
+
+function saveRSI(id, value) {
+  const now = Date.now();
+  localStorage.setItem(id, JSON.stringify({ value, time: now }));
+}
+
+function getRSIChange(id, newVal) {
+  const old = localStorage.getItem(id);
+  if (!old) return false;
+  const { value, time } = JSON.parse(old);
+  const diffH = (Date.now() - time) / 1000 / 3600;
+  return value < 50 && newVal > 50 && diffH <= 8;
 }
 
 async function updateRSIs() {
-  grid.innerHTML = "Chargement des données...";
+  container.innerHTML = "";
   const coins = await fetchTopCoins();
-  grid.innerHTML = "";
-  const oldData = JSON.parse(localStorage.getItem("cryptoRSI") || "{}");
-  const newData = {};
 
   for (const coin of coins) {
-    const prices = await fetchWeeklyPrices(coin.id);
-    const rsi = calculateRSI(prices);
-    const old = oldData[coin.symbol]?.rsi ?? null;
-    const oldTime = oldData[coin.symbol]?.time ?? 0;
-    const now = Date.now();
-    const wasRedToGreen = old !== null && old < 50 && rsi > 50 && (now - oldTime) < UPDATE_INTERVAL_HOURS * 3600 * 1000;
+    await sleep(1200); // éviter 429
 
-    newData[coin.symbol] = { rsi, time: now };
-    grid.appendChild(createSquare(coin.symbol, rsi, wasRedToGreen));
+    const prices =
+      (await tryCoinGeckoHistory(coin.id)) ||
+      (await tryBinance(coin.symbol.toUpperCase()));
+
+    if (!prices) continue;
+    const rsi = computeRSI(prices);
+    if (rsi === null) continue;
+
+    const box = document.createElement("div");
+    box.className =
+      "w-[45px] h-[45px] m-1 flex flex-col justify-center items-center rounded-lg text-[10px] font-semibold text-white shadow-lg";
+    box.style.background = rsi >= 50 ? "#16a34a" : "#dc2626";
+
+    const text = document.createElement("div");
+    text.textContent = coin.symbol.toUpperCase();
+    const val = document.createElement("div");
+    val.textContent = Math.round(rsi);
+
+    const changed = getRSIChange(coin.id, rsi);
+    saveRSI(coin.id, rsi);
+
+    if (changed) {
+      const cross = document.createElement("span");
+      cross.textContent = "✚";
+      cross.className = "text-white ml-1";
+      val.appendChild(cross);
+    }
+
+    box.appendChild(text);
+    box.appendChild(val);
+    container.appendChild(box);
   }
-
-  localStorage.setItem("cryptoRSI", JSON.stringify(newData));
 }
 
-updateBtn.onclick = updateRSIs;
-updateRSIs();
-setInterval(updateRSIs, UPDATE_INTERVAL_HOURS * 3600 * 1000);
+document.addEventListener("DOMContentLoaded", updateRSIs);
