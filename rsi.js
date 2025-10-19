@@ -1,19 +1,24 @@
 document.addEventListener("DOMContentLoaded", () => {
   const grid = document.getElementById("cryptoGrid");
-  const refreshBtn = document.getElementById("refreshBtn");
+  const btn = document.getElementById("refreshBtn");
+  const progress = document.getElementById("progressText");
   const proxyBase = "https://crypto-proxy-ten.vercel.app/api/proxy?url=";
+  const STORAGE_KEY = "cryptoRSIStates";
 
-  if (!grid) {
-    console.error("⚠️ Élément #cryptoGrid introuvable dans la page HTML");
-    return;
+  // Charger / sauvegarder les anciens RSI
+  function loadPrevStates() {
+    return JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}");
   }
 
-  // 💤 Petite pause pour éviter les erreurs 429
-  function sleep(ms) {
+  function saveStates(states) {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(states));
+  }
+
+  async function sleep(ms) {
     return new Promise((resolve) => setTimeout(resolve, ms));
   }
 
-  // 📊 Récupère le top 210 cryptos sur CoinGecko
+  // Top 210 cryptos depuis CoinGecko
   async function fetchTopCoins() {
     const url =
       proxyBase +
@@ -25,7 +30,7 @@ document.addEventListener("DOMContentLoaded", () => {
     if (!res.ok) throw new Error("Erreur CoinGecko Top Coins");
     const data = await res.json();
 
-    // 🧹 On enlève BTC, ETH, stables, wrapped
+    // Exclure BTC, ETH, stablecoins, wrapped
     return data.filter(
       (c) =>
         !/^(bitcoin|ethereum|tether|usd|dai|busd|usdc|wbtc|steth|wrapped)/i.test(
@@ -34,33 +39,12 @@ document.addEventListener("DOMContentLoaded", () => {
     );
   }
 
-  // 📈 Récupère les données historiques et calcule le RSI
-  async function fetchRSI(coinId) {
-    const url =
-      proxyBase +
-      encodeURIComponent(
-        `https://api.coingecko.com/api/v3/coins/${coinId}/market_chart?vs_currency=usd&days=210&interval=weekly`
-      );
-
-    try {
-      const res = await fetch(url);
-      if (!res.ok) throw new Error("Erreur ou limite atteinte");
-      const data = await res.json();
-
-      const prices = data.prices.map((p) => p[1]);
-      return computeRSI(prices, 30);
-    } catch (err) {
-      console.warn(`⛔ Erreur pour ${coinId}:`, err.message);
-      return null;
-    }
-  }
-
-  // 🧮 Calcul du RSI (30 périodes)
+  // Calcul RSI 30 périodes
   function computeRSI(prices, period = 30) {
     if (prices.length < period + 1) return null;
-
     let gains = 0,
       losses = 0;
+
     for (let i = 1; i <= period; i++) {
       const diff = prices[i] - prices[i - 1];
       if (diff >= 0) gains += diff;
@@ -86,41 +70,79 @@ document.addEventListener("DOMContentLoaded", () => {
     return 100 - 100 / (1 + rs);
   }
 
-  // 🧠 Met à jour la grille de RSI
-  async function updateRSIs() {
-    grid.innerHTML = "<p style='color:gray'>Chargement des cryptos...</p>";
-    const coins = await fetchTopCoins();
+  // Récupération des données RSI pour une crypto
+  async function fetchCoinRSI(coinId) {
+    const url =
+      proxyBase +
+      encodeURIComponent(
+        `https://api.coingecko.com/api/v3/coins/${coinId}/market_chart?vs_currency=usd&days=210&interval=weekly`
+      );
 
-    grid.innerHTML = "";
-
-    let count = 0;
-    for (const coin of coins.slice(0, 200)) {
-      await sleep(1200); // pause pour éviter le blocage
-      const rsi = await fetchRSI(coin.id);
-
-      const box = document.createElement("div");
-      box.className =
-        "cryptoBox transition-all duration-500 ease-in-out transform hover:scale-105";
-
-      if (rsi === null) {
-        box.style.background = "#4b5563"; // gris
-        box.textContent = coin.symbol.toUpperCase();
-      } else {
-        const color =
-          rsi < 30 ? "#dc2626" : rsi > 70 ? "#16a34a" : "#3b82f6";
-        box.style.background = color;
-        box.textContent = `${coin.symbol.toUpperCase()} ${rsi.toFixed(0)}`;
-      }
-
-      grid.appendChild(box);
-      count++;
-      if (count >= 200) break;
+    try {
+      const res = await fetch(url);
+      if (!res.ok) throw new Error("Erreur API CoinGecko pour " + coinId);
+      const data = await res.json();
+      const prices = data.prices.map((p) => p[1]);
+      return computeRSI(prices, 30);
+    } catch (e) {
+      console.warn("⚠️ Erreur sur", coinId, e.message);
+      return null;
     }
   }
 
-  // ⚡ Bouton de rafraîchissement
-  if (refreshBtn) refreshBtn.onclick = updateRSIs;
+  // Mise à jour du grid
+  async function updateRSIs() {
+    grid.innerHTML = "<p class='text-gray-400'>Chargement des cryptos...</p>";
+    if (progress) progress.innerText = "Calcul 0 / 200";
 
-  // 🚀 Lancement automatique
+    const coins = await fetchTopCoins();
+    grid.innerHTML = "";
+
+    const prevStates = loadPrevStates();
+    const newStates = {};
+
+    let count = 0;
+    for (const coin of coins.slice(0, 200)) {
+      count++;
+
+      const box = document.createElement("div");
+      box.className =
+        "cryptoBox transition-all duration-500 text-white text-xs rounded-lg flex flex-col items-center justify-center shadow-md";
+      box.style.width = "60px";
+      box.style.height = "60px";
+      box.style.background = "#444";
+      box.innerHTML = `<b>${coin.symbol.toUpperCase()}</b><div>--</div>`;
+      grid.appendChild(box);
+
+      // Calcul RSI
+      const rsi = await fetchCoinRSI(coin.id);
+      await sleep(1000);
+
+      let color = "#666";
+      let cross = "";
+
+      if (rsi !== null) {
+        const prevRSI = prevStates[coin.id]?.rsi;
+        const wasBelow50 = prevRSI !== undefined && prevRSI < 50;
+        const isAbove50 = rsi >= 50;
+
+        color = isAbove50 ? "#16a34a" : "#dc2626";
+        if (wasBelow50 && isAbove50) cross = "✚";
+
+        newStates[coin.id] = { rsi };
+      }
+
+      box.style.background = color;
+      box.innerHTML = `<b>${coin.symbol.toUpperCase()}</b><div>${rsi ? rsi.toFixed(0) : "--"} ${cross}</div>`;
+
+      if (progress) progress.innerText = `Calcul ${count} / 200`;
+      console.log(`${count}/200 ${coin.symbol}: RSI=${rsi?.toFixed(1) ?? "--"} ${cross}`);
+    }
+
+    if (progress) progress.innerText = "✅ Terminé";
+    saveStates(newStates);
+  }
+
+  if (btn) btn.onclick = updateRSIs;
   updateRSIs();
 });
