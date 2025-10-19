@@ -4,54 +4,65 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>RSI Weekly 30 – 200 Cryptos</title>
+
+    <!-- Tailwind CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
     <style>
       body {
-        background: #0f172a;
-        color: white;
+        background-color: #0f172a; /* sombre moderne */
         font-family: "Inter", sans-serif;
-        text-align: center;
-      }
-      h1 {
-        color: orange;
-        font-size: 24px;
-        margin: 20px 0;
-      }
-      button {
-        background: #2563eb;
         color: white;
-        padding: 10px 20px;
-        border: none;
-        border-radius: 8px;
-        cursor: pointer;
-        margin-bottom: 20px;
       }
-      button:hover {
-        background: #1d4ed8;
+      .cryptoBox {
+        transition: all 0.3s ease;
+        text-align: center;
+        font-weight: 600;
+      }
+      .cryptoBox:hover {
+        transform: scale(1.1);
+        box-shadow: 0 0 12px rgba(255, 255, 255, 0.2);
       }
       #cryptoGrid {
         display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(60px, 1fr));
+        grid-template-columns: repeat(auto-fill, minmax(60px, 1fr));
         gap: 8px;
-        max-width: 1200px;
-        margin: 0 auto;
-      }
-      .cryptoBox {
-        height: 60px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-size: 12px;
-        font-weight: 600;
-        border-radius: 10px;
-        transition: all 0.3s ease;
       }
     </style>
   </head>
-  <body>
-    <h1>RSI Weekly 30 – 200 Cryptos</h1>
-    <button id="refreshBtn">🔄 Rafraîchir</button>
-    <div id="cryptoGrid"></div>
 
+  <body class="min-h-screen p-6">
+    <div class="max-w-6xl mx-auto">
+      <!-- En-tête -->
+      <div class="flex items-center justify-between mb-6">
+        <h1 class="text-orange-500 text-2xl font-bold">
+          RSI Weekly 30 – 200 Cryptos
+        </h1>
+        <div class="flex items-center space-x-3">
+          <button
+            id="refreshBtn"
+            class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg shadow"
+          >
+            Rafraîchir
+          </button>
+          <span
+            id="progressText"
+            class="bg-black text-white px-3 py-2 rounded-lg text-sm"
+            >En attente...</span
+          >
+        </div>
+      </div>
+
+      <!-- Grille -->
+      <div
+        id="cryptoGrid"
+        class="grid grid-cols-10 sm:grid-cols-15 md:grid-cols-20 lg:grid-cols-25 gap-2"
+      >
+        <p class="text-gray-400 text-sm">Chargement des données RSI...</p>
+      </div>
+    </div>
+
+    <!-- Script RSI -->
     <script src="rsi.js?v=5"></script>
   </body>
 </html>
